@@ -2,6 +2,7 @@ import smtplib
 import pandas as pd
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+from tqdm import tqdm  # Import tqdm for progress bar
 
 # Function to send email
 def send_email(subject, body_template, recipient_info, cc_list=[]):
@@ -21,22 +22,28 @@ def send_email(subject, body_template, recipient_info, cc_list=[]):
     server.starttls()
     server.login(sender_email, sender_password)
 
-    for recipient_email, recipient_name in recipient_info.items():
-        # Create the email object
-        message = MIMEMultipart()
-        message['From'] = f"display_name <{display_sender_email}>"
-        message['To'] = recipient_email
-        message['Subject'] = subject
-        if cc_list:
-            message['Cc'] = ", ".join(cc_list)
+        # Initialize progress bar
+    total_recipients = len(recipient_info)
+    with tqdm(total=total_recipients, desc="Sending Emails") as pbar:
+        for recipient_email, recipient_name in recipient_info.items():
+            # Create the email object
+            message = MIMEMultipart()
+            message['From'] = f"display_name <{display_sender_email}>"
+            message['To'] = recipient_email
+            message['Subject'] = subject
+            if cc_list:
+                message['Cc'] = ", ".join(cc_list)
+    
+            # Personalize the body by replacing the placeholder with the recipient's name
+            personalized_body = body_template.replace("{{name}}", recipient_name)
+            message.attach(MIMEText(personalized_body, 'html'))
+    
+            # Send the email
+            all_recipients = [recipient_email] + cc_list
+            server.sendmail(sender_email, all_recipients, message.as_string())
 
-        # Personalize the body by replacing the placeholder with the recipient's name
-        personalized_body = body_template.replace("{{name}}", recipient_name)
-        message.attach(MIMEText(personalized_body, 'html'))
-
-        # Send the email
-        all_recipients = [recipient_email] + cc_list
-        server.sendmail(sender_email, all_recipients, message.as_string())
+                # Update the progress bar
+            pbar.update(1)
 
     # Disconnect from the server
     server.quit()
